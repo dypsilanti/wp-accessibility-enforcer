@@ -1,7 +1,38 @@
-// Accessibility Rule Enforcer
-// Checks and fixes common accessibility issues in the DOM
-
+/**
+ * Accessibility Rule Enforcer
+ * 
+ * A lightweight JavaScript class that scans the DOM for common accessibility
+ * issues and can automatically fix many of them. Helps ensure WCAG 2.1
+ * Level A and AA compliance.
+ * 
+ * @class AccessibilityEnforcer
+ * @version 1.0.0
+ * @license GPL-2.0-or-later
+ * 
+ * @example
+ * // Basic usage with defaults
+ * const enforcer = new AccessibilityEnforcer();
+ * enforcer.enforce();
+ * 
+ * @example
+ * // Custom configuration
+ * const enforcer = new AccessibilityEnforcer({
+ *   autoFix: false,
+ *   logIssues: true,
+ *   rules: ['images', 'forms', 'headings']
+ * });
+ * const issues = enforcer.enforce();
+ * console.log(`Found ${issues.length} issues`);
+ */
 class AccessibilityEnforcer {
+  /**
+   * Creates a new AccessibilityEnforcer instance.
+   * 
+   * @param {Object} options - Configuration options
+   * @param {boolean} [options.autoFix=true] - Automatically fix issues when possible
+   * @param {boolean} [options.logIssues=true] - Log report to console
+   * @param {string[]} [options.rules] - Array of rule names to check
+   */
   constructor(options = {}) {
     this.options = {
       autoFix: options.autoFix ?? true,
@@ -19,7 +50,15 @@ class AccessibilityEnforcer {
     this.issues = [];
   }
 
-  // Main enforcement function
+  /**
+   * Run all enabled accessibility checks.
+   * 
+   * Scans the DOM against configured rules, applies fixes if auto-fix is enabled,
+   * and logs results if logging is enabled.
+   * 
+   * @returns {Array<Object>} Array of issue objects found
+   * @public
+   */
   enforce() {
     this.issues = [];
     
@@ -37,7 +76,16 @@ class AccessibilityEnforcer {
     return this.issues;
   }
 
-  // Check links for accessible text
+  /**
+   * Check links for accessible text.
+   * 
+   * Validates that all links have accessible names via visible text,
+   * aria-label, aria-labelledby, or title attribute.
+   * 
+   * WCAG: 2.4.4 Link Purpose (In Context) - Level A
+   * 
+   * @private
+   */
   checkLinks() {
     const links = document.querySelectorAll('a');
     
@@ -70,7 +118,16 @@ class AccessibilityEnforcer {
     });
   }
 
-  // Check images for alt text
+  /**
+   * Check images for alt text.
+   * 
+   * Ensures all images have alt attributes or are properly marked as decorative.
+   * Detects missing alt and empty alt on meaningful images.
+   * 
+   * WCAG: 1.1.1 Non-text Content - Level A
+   * 
+   * @private
+   */
   checkImages() {
     const images = document.querySelectorAll('img');
     
@@ -118,7 +175,16 @@ class AccessibilityEnforcer {
     });
   }
 
-  // Check buttons for accessible text
+  /**
+   * Check buttons for accessible text.
+   * 
+   * Validates that all button elements have accessible names through visible
+   * text, aria-label, or aria-labelledby.
+   * 
+   * WCAG: 4.1.2 Name, Role, Value - Level A
+   * 
+   * @private
+   */
   checkButtons() {
     const buttons = document.querySelectorAll('button, [role="button"]');
     
@@ -146,7 +212,16 @@ class AccessibilityEnforcer {
     });
   }
 
-  // Check form inputs for labels
+  /**
+   * Check form inputs for labels.
+   * 
+   * Ensures all form controls (input, select, textarea) have associated labels
+   * or aria-label attributes.
+   * 
+   * WCAG: 3.3.2 Labels or Instructions - Level A
+   * 
+   * @private
+   */
   checkForms() {
     const inputs = document.querySelectorAll('input:not([type="hidden"]), select, textarea');
     
@@ -176,7 +251,16 @@ class AccessibilityEnforcer {
     });
   }
 
-  // Check heading hierarchy
+  /**
+   * Check heading hierarchy.
+   * 
+   * Validates that heading levels progress logically (h1, h2, h3) without
+   * skipping levels. Issues warnings for skipped levels.
+   * 
+   * WCAG: 1.3.1 Info and Relationships - Level A
+   * 
+   * @private
+   */
   checkHeadings() {
     const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
     let prevLevel = 0;
@@ -198,7 +282,16 @@ class AccessibilityEnforcer {
     });
   }
 
-  // Check for lang attribute
+  /**
+   * Check for lang attribute on HTML element.
+   * 
+   * Validates that the document's primary language is declared via the lang
+   * attribute on the html element.
+   * 
+   * WCAG: 3.1.1 Language of Page - Level A
+   * 
+   * @private
+   */
   checkLanguage() {
     const html = document.documentElement;
     const hasLang = html.hasAttribute('lang');
@@ -220,7 +313,17 @@ class AccessibilityEnforcer {
     }
   }
 
-  // Helper: Infer link text
+  /**
+   * Infer appropriate text for a link.
+   * 
+   * Uses various heuristics including checking for images, icons, and URL
+   * patterns to generate meaningful link text.
+   * 
+   * @param {HTMLElement} link - The link element
+   * @param {string} href - The href attribute value
+   * @returns {string} Inferred link text
+   * @private
+   */
   inferLinkText(link, href) {
     // Check for image children
     const img = link.querySelector('img');
@@ -251,7 +354,15 @@ class AccessibilityEnforcer {
     return 'Link';
   }
 
-  // Helper: Infer image alt text
+  /**
+   * Infer appropriate alt text for an image.
+   * 
+   * Checks title attribute and filename to generate meaningful alt text.
+   * 
+   * @param {HTMLImageElement} img - The image element
+   * @returns {string} Inferred alt text
+   * @private
+   */
   inferImageAlt(img) {
     const src = img.getAttribute('src') || '';
     const title = img.getAttribute('title');
@@ -263,7 +374,16 @@ class AccessibilityEnforcer {
     return filename.replace(/[-_]/g, ' ') || 'Image';
   }
 
-  // Helper: Infer button text
+  /**
+   * Infer appropriate text for a button.
+   * 
+   * Detects common button patterns (close, menu, search) to generate
+   * meaningful button text.
+   * 
+   * @param {HTMLElement} btn - The button element
+   * @returns {string} Inferred button text
+   * @private
+   */
   inferButtonText(btn) {
     // Check for common patterns
     if (btn.querySelector('[class*="close"]') || btn.querySelector('[class*="×"]')) {
@@ -279,7 +399,16 @@ class AccessibilityEnforcer {
     return 'Button';
   }
 
-  // Helper: Infer input label
+  /**
+   * Infer appropriate label for a form input.
+   * 
+   * Uses placeholder, name attribute, and input type to generate
+   * meaningful labels.
+   * 
+   * @param {HTMLElement} input - The input element
+   * @returns {string} Inferred label text
+   * @private
+   */
   inferInputLabel(input) {
     const type = input.getAttribute('type') || input.tagName.toLowerCase();
     const name = input.getAttribute('name') || '';
@@ -304,7 +433,14 @@ class AccessibilityEnforcer {
     return typeLabels[type] || 'Input field';
   }
 
-  // Generate report
+  /**
+   * Generate and log accessibility report to console.
+   * 
+   * Creates a formatted console output with grouped issues, showing counts,
+   * severity, WCAG criteria, and applied fixes.
+   * 
+   * @private
+   */
   logReport() {
     console.group('🔍 Accessibility Report');
     console.log(`Total issues found: ${this.issues.length}`);

@@ -4,7 +4,29 @@
  * Description: Automatically checks and fixes common accessibility issues across your site using a lightweight client-side enforcer.
  * Version: 1.0.0
  * Author: Accessibility Enforcer
+ * Author URI: https://github.com/danoy99/wp-accessibility-enforcer
+ * Plugin URI: https://github.com/danoy99/wp-accessibility-enforcer
  * Text Domain: accessibility-enforcer
+ * Domain Path: /languages
+ * Requires at least: 5.8
+ * Requires PHP: 7.4
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * 
+ * This plugin provides real-time accessibility scanning and fixing for WordPress sites.
+ * It checks for WCAG 2.1 Level A and AA compliance issues including:
+ * - Missing alt text on images
+ * - Unlabeled form inputs
+ * - Inaccessible links and buttons
+ * - Heading hierarchy issues
+ * - Missing language attributes
+ * 
+ * All processing happens client-side in the browser, ensuring your database
+ * and server-side content remains unchanged.
+ * 
+ * @package AccessibilityEnforcer
+ * @version 1.0.0
+ * @since 1.0.0
  */
 
 if (!defined('ABSPATH')) {
@@ -20,7 +42,14 @@ if (!defined('A11Y_ENFORCER_URL')) {
 }
 
 /**
- * Enqueue the Accessibility Enforcer script on the frontend
+ * Enqueue the Accessibility Enforcer script on the frontend.
+ * 
+ * This function loads the accessibility enforcer JavaScript and configures it
+ * with the saved options. The script runs after DOM ready and scans the page
+ * for accessibility issues.
+ * 
+ * @since 1.0.0
+ * @return void
  */
 function a11y_enforcer_enqueue() {
     $opts = a11y_enforcer_get_options();
@@ -60,7 +89,16 @@ function a11y_enforcer_enqueue() {
 add_action('wp_enqueue_scripts', 'a11y_enforcer_enqueue');
 
 /**
- * Defaults and options helpers (simple)
+ * Get default plugin options.
+ * 
+ * Returns the default configuration for the plugin. These are used on first
+ * activation and as fallback values if specific options aren't set.
+ * 
+ * @since 1.0.0
+ * @return array{
+ *   enabled: bool,
+ *   autoFix: bool
+ * } Default options array
  */
 function a11y_enforcer_default_options() {
     return array(
@@ -69,6 +107,18 @@ function a11y_enforcer_default_options() {
     );
 }
 
+/**
+ * Get current plugin options, merged with defaults.
+ * 
+ * Retrieves saved options from the database and merges them with defaults
+ * to ensure all required keys exist.
+ * 
+ * @since 1.0.0
+ * @return array{
+ *   enabled: bool,
+ *   autoFix: bool
+ * } Merged options array
+ */
 function a11y_enforcer_get_options() {
     $saved = get_option('a11y_enforcer_options');
     $defaults = a11y_enforcer_default_options();
@@ -79,7 +129,13 @@ function a11y_enforcer_get_options() {
 }
 
 /**
- * Admin: one simple settings page with two checkboxes
+ * Register the plugin settings page in WordPress admin.
+ * 
+ * Adds a submenu page under Settings where users can configure
+ * the enforcer's behavior.
+ * 
+ * @since 1.0.0
+ * @return void
  */
 function a11y_enforcer_add_admin_menu() {
     add_options_page(
@@ -92,6 +148,15 @@ function a11y_enforcer_add_admin_menu() {
 }
 add_action('admin_menu', 'a11y_enforcer_add_admin_menu');
 
+/**
+ * Initialize admin settings.
+ * 
+ * Registers plugin settings with WordPress so they can be saved via
+ * the Settings API.
+ * 
+ * @since 1.0.0
+ * @return void
+ */
 function a11y_enforcer_admin_init() {
     register_setting(
         'a11y_enforcer',
@@ -101,6 +166,16 @@ function a11y_enforcer_admin_init() {
 }
 add_action('admin_init', 'a11y_enforcer_admin_init');
 
+/**
+ * Sanitize plugin options before saving.
+ * 
+ * Ensures that saved options are clean and valid by converting checkbox
+ * values to proper booleans.
+ * 
+ * @since 1.0.0
+ * @param array $input Raw input from settings form
+ * @return array Sanitized options
+ */
 function a11y_enforcer_sanitize_options($input) {
     return array(
         'enabled' => !empty($input['enabled']),
@@ -108,6 +183,15 @@ function a11y_enforcer_sanitize_options($input) {
     );
 }
 
+/**
+ * Render the plugin settings page.
+ * 
+ * Displays a simple admin interface with checkboxes to enable/disable
+ * the enforcer and auto-fix functionality.
+ * 
+ * @since 1.0.0
+ * @return void
+ */
 function a11y_enforcer_render_settings_page() {
     if (!current_user_can('manage_options')) {
         return;
@@ -131,7 +215,14 @@ function a11y_enforcer_render_settings_page() {
 }
 
 /**
- * Activation: set defaults once
+ * Plugin activation hook.
+ * 
+ * Sets default options in the database on first activation if they don't
+ * already exist. This ensures the plugin works out of the box with sensible
+ * defaults.
+ * 
+ * @since 1.0.0
+ * @return void
  */
 function a11y_enforcer_activate() {
     if (false === get_option('a11y_enforcer_options')) {

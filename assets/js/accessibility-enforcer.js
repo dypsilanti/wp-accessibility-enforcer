@@ -44,7 +44,8 @@ class AccessibilityEnforcer {
         'forms',
         'headings',
         'lang',
-        'color-contrast'
+        'color-contrast',
+        'aria-description'
       ]
     };
     this.issues = [];
@@ -68,6 +69,7 @@ class AccessibilityEnforcer {
     if (this.options.rules.includes('forms')) this.checkForms();
     if (this.options.rules.includes('headings')) this.checkHeadings();
     if (this.options.rules.includes('lang')) this.checkLanguage();
+    if (this.options.rules.includes('aria-description')) this.checkAriaDescription();
     
     if (this.options.logIssues) {
       this.logReport();
@@ -311,6 +313,49 @@ class AccessibilityEnforcer {
         this.issues[this.issues.length - 1].fixApplied = 'Added lang="en"';
       }
     }
+  }
+
+  /**
+   * Check for aria-description and replace with aria-describedby.
+   *
+   * The aria-description attribute has limited assistive technology support.
+   * This rule replaces it with aria-describedby, which references a visually
+   * hidden element containing the description text.
+   *
+   * WCAG: 4.1.2 Name, Role, Value - Level A
+   *
+   * @private
+   */
+  checkAriaDescription() {
+    const elements = document.querySelectorAll('[aria-description]');
+
+    elements.forEach((el, idx) => {
+      const description = el.getAttribute('aria-description');
+
+      this.issues.push({
+        type: 'aria-description',
+        severity: 'warning',
+        element: el,
+        message: 'Element uses aria-description which has limited support; use aria-describedby instead',
+        wcag: '4.1.2 (Level A)'
+      });
+
+      if (this.options.autoFix) {
+        const id = 'a11y-desc-' + idx + '-' + Date.now();
+        const span = document.createElement('span');
+        span.id = id;
+        span.textContent = description;
+        span.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;';
+        el.parentNode.insertBefore(span, el.nextSibling);
+
+        const existing = el.getAttribute('aria-describedby');
+        el.setAttribute('aria-describedby', existing ? existing + ' ' + id : id);
+        el.removeAttribute('aria-description');
+
+        this.issues[this.issues.length - 1].fixed = true;
+        this.issues[this.issues.length - 1].fixApplied = 'Replaced aria-description with aria-describedby="' + id + '"';
+      }
+    });
   }
 
   /**

@@ -110,7 +110,10 @@ class AccessibilityEnforcer {
           const href = link.getAttribute('href') || '';
           const inferredText = this.inferLinkText(link, href);
           
-          if (!hasTitle && inferredText) {
+          // Only add aria-label if link has meaningful content (e.g., child image with alt)
+          // Don't add aria-label to completely empty links as it causes accessibility tool errors
+          const hasChildImageWithAlt = link.querySelector('img[alt]');
+          if (!hasTitle && inferredText && hasChildImageWithAlt) {
             link.setAttribute('aria-label', inferredText);
             this.issues[this.issues.length - 1].fixed = true;
             this.issues[this.issues.length - 1].fixApplied = `Added aria-label: "${inferredText}"`;
@@ -191,7 +194,8 @@ class AccessibilityEnforcer {
     const buttons = document.querySelectorAll('button, [role="button"]');
     
     buttons.forEach(btn => {
-      const hasText = btn.textContent.trim().length > 0;
+      const visibleText = this.normalizeText(btn.textContent);
+      const hasText = visibleText.length > 0;
       const hasAriaLabel = btn.getAttribute('aria-label');
       const hasAriaLabelledby = btn.getAttribute('aria-labelledby');
       
@@ -211,7 +215,40 @@ class AccessibilityEnforcer {
           this.issues[this.issues.length - 1].fixApplied = `Added aria-label: "${inferredText}"`;
         }
       }
+
+      // If visible text exists, aria-label should include it (WCAG 2.5.3 Label in Name).
+      // This catches cases like: visible "Add to Calendar" vs aria-label
+      // "View links to add events to your calendar".
+      if (hasText && hasAriaLabel) {
+        const normalizedAriaLabel = this.normalizeText(hasAriaLabel);
+        if (!normalizedAriaLabel.includes(visibleText)) {
+          this.issues.push({
+            type: 'button-label-in-name',
+            severity: 'warning',
+            element: btn,
+            message: 'Button visible label and accessible name do not match',
+            wcag: '2.5.3 (Level A)'
+          });
+
+          if (this.options.autoFix) {
+            btn.setAttribute('aria-label', visibleText);
+            this.issues[this.issues.length - 1].fixed = true;
+            this.issues[this.issues.length - 1].fixApplied = `Updated aria-label to match visible text: "${visibleText}"`;
+          }
+        }
+      }
     });
+  }
+
+  /**
+   * Normalize user-facing text for robust label comparisons.
+   *
+   * @param {string} text - Text to normalize
+   * @returns {string} Lowercased, space-normalized text
+   * @private
+   */
+  normalizeText(text) {
+    return (text || '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
   /**

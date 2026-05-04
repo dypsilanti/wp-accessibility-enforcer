@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Accessibility Enforcer
  * Description: Automatically checks and fixes common accessibility issues across your site using a lightweight client-side enforcer.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Accessibility Enforcer
  * Author URI: https://github.com/danoy99/wp-accessibility-enforcer
  * Plugin URI: https://github.com/danoy99/wp-accessibility-enforcer

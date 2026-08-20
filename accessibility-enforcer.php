@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Accessibility Enforcer
  * Description: Automatically checks and fixes common accessibility issues across your site using a lightweight client-side enforcer.
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Accessibility Enforcer
  * Author URI: https://github.com/danoy99/wp-accessibility-enforcer
  * Plugin URI: https://github.com/danoy99/wp-accessibility-enforcer
@@ -20,12 +20,13 @@
  * - Inaccessible links and buttons
  * - Heading hierarchy issues
  * - Missing language attributes
+ * - WordPress footnote return links (WCAG 2.5.3 Label in Name)
  * 
  * All processing happens client-side in the browser, ensuring your database
  * and server-side content remains unchanged.
  * 
  * @package AccessibilityEnforcer
- * @version 1.0.0
+ * @version 1.0.2
  * @since 1.0.0
  */
 
@@ -61,7 +62,7 @@ function a11y_enforcer_enqueue() {
     $script_abs_path = A11Y_ENFORCER_PATH . $script_rel_path;
     $script_url = A11Y_ENFORCER_URL . $script_rel_path;
 
-    $version = file_exists($script_abs_path) ? filemtime($script_abs_path) : '1.0.0';
+    $version = file_exists($script_abs_path) ? filemtime($script_abs_path) : '1.1.0';
 
     wp_register_script(
         'accessibility-enforcer',
@@ -73,10 +74,30 @@ function a11y_enforcer_enqueue() {
 
     wp_enqueue_script('accessibility-enforcer');
 
+    // Build the rules list, conditionally including WordPress-specific fixes.
+    $rules = array(
+        'links',
+        'images',
+        'buttons',
+        'forms',
+        'headings',
+        'lang',
+        'aria-description',
+    );
+
+    if (!empty($opts['fixWpFootnotes'])) {
+        $rules[] = 'wp-footnotes';
+    }
+
+    if (!empty($opts['fixWpCoverVideo'])) {
+        $rules[] = 'wp-cover-video';
+    }
+
     // Auto-run the enforcer after DOM is ready with saved options
     $init_options = array(
-        'autoFix' => !empty($opts['autoFix']),
+        'autoFix'  => !empty($opts['autoFix']),
         'logIssues' => true,
+        'rules'    => $rules,
     );
     $init_js = 'document.addEventListener("DOMContentLoaded", function() {' .
         'try { if (typeof AccessibilityEnforcer === "function") {' .
@@ -97,13 +118,17 @@ add_action('wp_enqueue_scripts', 'a11y_enforcer_enqueue');
  * @since 1.0.0
  * @return array{
  *   enabled: bool,
- *   autoFix: bool
+ *   autoFix: bool,
+ *   fixWpFootnotes: bool,
+ *   fixWpCoverVideo: bool
  * } Default options array
  */
 function a11y_enforcer_default_options() {
     return array(
-        'enabled' => true,
-        'autoFix' => true,
+        'enabled'         => true,
+        'autoFix'         => true,
+        'fixWpFootnotes'  => true,
+        'fixWpCoverVideo' => true,
     );
 }
 
@@ -116,7 +141,9 @@ function a11y_enforcer_default_options() {
  * @since 1.0.0
  * @return array{
  *   enabled: bool,
- *   autoFix: bool
+ *   autoFix: bool,
+ *   fixWpFootnotes: bool,
+ *   fixWpCoverVideo: bool
  * } Merged options array
  */
 function a11y_enforcer_get_options() {
@@ -178,8 +205,10 @@ add_action('admin_init', 'a11y_enforcer_admin_init');
  */
 function a11y_enforcer_sanitize_options($input) {
     return array(
-        'enabled' => !empty($input['enabled']),
-        'autoFix' => !empty($input['autoFix']),
+        'enabled'         => !empty($input['enabled']),
+        'autoFix'         => !empty($input['autoFix']),
+        'fixWpFootnotes'  => !empty($input['fixWpFootnotes']),
+        'fixWpCoverVideo' => !empty($input['fixWpCoverVideo']),
     );
 }
 
@@ -207,6 +236,14 @@ function a11y_enforcer_render_settings_page() {
     echo '</td></tr>';
     echo '<tr><th scope="row">' . esc_html__('Auto-fix issues', 'accessibility-enforcer') . '</th><td>';
     echo '<label><input type="checkbox" name="a11y_enforcer_options[autoFix]" value="1" ' . checked(!empty($opts['autoFix']), true, false) . ' /> ' . esc_html__('Attempt lightweight fixes (adds ARIA/alt)', 'accessibility-enforcer') . '</label>';
+    echo '</td></tr>';
+    echo '<tr><th scope="row">' . esc_html__('Fix WordPress footnotes', 'accessibility-enforcer') . '</th><td>';
+    echo '<label><input type="checkbox" name="a11y_enforcer_options[fixWpFootnotes]" value="1" ' . checked(!empty($opts['fixWpFootnotes']), true, false) . ' /> ' . esc_html__('Fix WCAG 2.5.3 Label in Name violations in block editor footnote return links', 'accessibility-enforcer') . '</label>';
+    echo '<p class="description">' . esc_html__('WordPress\'s built-in footnote block generates return links whose aria-label does not contain the visible ↩︎ symbol, violating WCAG 2.5.3. This fix hides the symbol from screen readers and provides the descriptive label as visually-hidden text instead.', 'accessibility-enforcer') . '</p>';
+    echo '</td></tr>';
+    echo '<tr><th scope="row">' . esc_html__('Fix WordPress Cover block videos', 'accessibility-enforcer') . '</th><td>';
+    echo '<label><input type="checkbox" name="a11y_enforcer_options[fixWpCoverVideo]" value="1" ' . checked(!empty($opts['fixWpCoverVideo']), true, false) . ' /> ' . esc_html__('Hide decorative Cover block background videos from assistive technology', 'accessibility-enforcer') . '</label>';
+    echo '<p class="description">' . esc_html__('The Cover block\'s background video is decorative and carries no information, but without aria-hidden="true" some screen readers announce it. This fix adds aria-hidden="true" to any video with the wp-block-cover__video-background class.', 'accessibility-enforcer') . '</p>';
     echo '</td></tr>';
     echo '</table>';
     submit_button();

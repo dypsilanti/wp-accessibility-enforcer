@@ -6,7 +6,7 @@
  * Level A and AA compliance.
  * 
  * @class AccessibilityEnforcer
- * @version 1.0.0
+ * @version 1.1.0
  * @license GPL-2.0-or-later
  * 
  * @example
@@ -45,7 +45,9 @@ class AccessibilityEnforcer {
         'headings',
         'lang',
         'color-contrast',
-        'aria-description'
+        'aria-description',
+        'wp-footnotes',
+        'wp-cover-video'
       ]
     };
     this.issues = [];
@@ -70,6 +72,8 @@ class AccessibilityEnforcer {
     if (this.options.rules.includes('headings')) this.checkHeadings();
     if (this.options.rules.includes('lang')) this.checkLanguage();
     if (this.options.rules.includes('aria-description')) this.checkAriaDescription();
+    if (this.options.rules.includes('wp-footnotes')) this.checkWordPressFootnotes();
+    if (this.options.rules.includes('wp-cover-video')) this.checkWordPressCoverVideo();
     
     if (this.options.logIssues) {
       this.logReport();
@@ -391,6 +395,135 @@ class AccessibilityEnforcer {
 
         this.issues[this.issues.length - 1].fixed = true;
         this.issues[this.issues.length - 1].fixApplied = 'Replaced aria-description with aria-describedby="' + id + '"';
+      }
+    });
+  }
+
+  /**
+   * Check WordPress footnote return links for WCAG 2.5.3 Label in Name violations.
+   *
+   * WordPress's built-in footnote block generates return links using the ↩︎ symbol
+   * as visible text, but overrides the accessible name entirely via aria-label
+   * (e.g. "Jump to footnote reference 1"). Because the aria-label contains no part
+   * of the visible symbol, assistive technologies and speech-input users encounter
+   * a mismatch — the spoken label doesn't match what's on screen.
+   *
+   * Fix strategy: remove aria-label and instead inject two spans inside the link:
+   *   1. aria-hidden="true" on the ↩︎ symbol — hides it from screen readers.
+   *   2. A visually-hidden span with the descriptive label text — read aloud
+   *      by screen readers but invisible to sighted users.
+   *
+   * This gives screen readers the full description ("Jump to footnote reference N")
+   * while satisfying 2.5.3 because there is no longer a conflicting aria-label
+   * competing with visible text.
+   *
+   * WCAG: 2.5.3 Label in Name - Level A
+   *
+   * @private
+   */
+  checkWordPressFootnotes() {
+    const returnLinks = document.querySelectorAll(
+      '.wp-block-footnotes a[aria-label]'
+    );
+
+    returnLinks.forEach(link => {
+      const ariaLabel = link.getAttribute('aria-label');
+      const visibleText = link.textContent.trim();
+
+      // Only act when there is an aria-label that doesn't contain the visible
+      // symbol text — the classic WP footnote pattern.
+      const normalizedLabel = this.normalizeText(ariaLabel);
+      const normalizedVisible = this.normalizeText(visibleText);
+
+      if (normalizedVisible.length > 0 && !normalizedLabel.includes(normalizedVisible)) {
+        this.issues.push({
+          type: 'wp-footnote-label-in-name',
+          severity: 'error',
+          element: link,
+          message: `Footnote return link aria-label ("${ariaLabel}") does not contain its visible text ("${visibleText}") — violates WCAG 2.5.3 Label in Name`,
+          wcag: '2.5.3 (Level A)'
+        });
+
+        if (this.options.autoFix) {
+          // Preserve the descriptive label text before removing the attribute.
+          link.removeAttribute('aria-label');
+
+          // Wrap the visible return symbol so screen readers skip it.
+          const symbolSpan = document.createElement('span');
+          symbolSpan.setAttribute('aria-hidden', 'true');
+          symbolSpan.textContent = visibleText;
+
+          // Provide the descriptive label as visually-hidden text that screen
+          // readers will announce instead.
+          const labelSpan = document.createElement('span');
+          labelSpan.textContent = ariaLabel;
+          labelSpan.style.cssText = [
+            'position:absolute',
+            'width:1px',
+            'height:1px',
+            'padding:0',
+            'margin:-1px',
+            'overflow:hidden',
+            'clip:rect(0,0,0,0)',
+            'white-space:nowrap',
+            'border:0'
+          ].join(';');
+
+          link.textContent = '';
+          link.appendChild(symbolSpan);
+          link.appendChild(labelSpan);
+
+          this.issues[this.issues.length - 1].fixed = true;
+          this.issues[this.issues.length - 1].fixApplied =
+            `Removed aria-label; symbol wrapped in aria-hidden span; label "${ariaLabel}" moved to visually-hidden span`;
+        }
+      }
+    });
+  }
+
+  /**
+   * Check WordPress Cover block background videos for aria-hidden.
+   *
+   * The Cover block renders a <video> element as a purely decorative background.
+   * It carries no informational content — its only purpose is visual atmosphere —
+   * so assistive technologies should skip it entirely. Without aria-hidden="true"
+   * some screen readers announce the presence of a video element, which is
+   * confusing and adds noise for users who rely on AT.
+   *
+   * WordPress uses the class `wp-block-cover__video-background` on every such
+   * element, giving us a reliable, version-stable hook that won't accidentally
+   * catch intentional/informational videos elsewhere on the page.
+   *
+   * Fix: set aria-hidden="true" on the video element. No role or label is added
+   * because the element is decorative; hiding it is the correct treatment.
+   *
+   * WCAG: 1.1.1 Non-text Content - Level A (decorative media must be hidden
+   * from assistive technology)
+   *
+   * @private
+   */
+  checkWordPressCoverVideo() {
+    const videos = document.querySelectorAll(
+      'video.wp-block-cover__video-background'
+    );
+
+    videos.forEach(video => {
+      const isHidden = video.getAttribute('aria-hidden') === 'true';
+
+      if (!isHidden) {
+        this.issues.push({
+          type: 'wp-cover-video',
+          severity: 'error',
+          element: video,
+          message: 'WordPress Cover block background video is not hidden from assistive technology — decorative videos must have aria-hidden="true"',
+          wcag: '1.1.1 (Level A)'
+        });
+
+        if (this.options.autoFix) {
+          video.setAttribute('aria-hidden', 'true');
+          this.issues[this.issues.length - 1].fixed = true;
+          this.issues[this.issues.length - 1].fixApplied = 'Added aria-hidden="true" to decorative background video';
+        }
       }
     });
   }
